@@ -1,133 +1,196 @@
-# QuiQue Micromarket
+<div align="center">
+  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/laravel/laravel-original.svg" alt="Laravel" width="82" height="82">
 
-Fundación técnica del POS e inventario construida con Laravel 12, PHP 8.2,
-MySQL/MariaDB, Blade, Tailwind CSS y JavaScript.
+  # QuiQue Micromarket
 
-## Puesta en marcha local
+  **Sistema web de gestión comercial, inventario y punto de venta para micromercados.**
 
-1. Iniciar Apache y MySQL desde el panel de XAMPP.
-2. Crear la base `quique_micromarket` con cotejamiento `utf8mb4_unicode_ci`.
-3. Copiar `.env.example` a `.env` si `.env` no existe y ajustar credenciales.
-4. Ejecutar `C:\xampp\php\php.exe artisan key:generate`.
-5. Ejecutar `C:\xampp\php\php.exe artisan migrate --seed`.
-6. Copiar el contenido de `deploy/apache/quique-micromarket.conf.example` al final de
-   `C:\xampp\apache\conf\extra\httpd-vhosts.conf` y reiniciar Apache.
-7. Ejecutar `npm install` y `npm run build` cuando cambien los assets.
-8. Abrir `http://localhost/quique-micromarket`.
+  [![Laravel](https://img.shields.io/badge/Laravel-12-FF2D20?logo=laravel&logoColor=white)](https://laravel.com)
+  [![PHP](https://img.shields.io/badge/PHP-8.2%2B-777BB4?logo=php&logoColor=white)](https://www.php.net)
+  [![MySQL](https://img.shields.io/badge/MySQL%20%2F%20MariaDB-00618A?logo=mysql&logoColor=white)](https://www.mysql.com)
+  [![Tests](https://img.shields.io/badge/tests-185%20passed-22C55E?logo=phpunit&logoColor=white)](#pruebas-automatizadas)
+</div>
 
-La aplicación no permite registro público y no contiene credenciales predeterminadas.
+---
 
-## Recuperación de contraseña
+## Sobre el proyecto
 
-El flujo utiliza el Password Broker oficial de Laravel. Los enlaces expiran a los
-60 minutos y su solicitud está limitada a una por minuto. En desarrollo,
-`MAIL_MAILER=log` escribe el mensaje en `storage/logs/laravel.log`, por lo que no
-entrega correos reales.
+QuiQue Micromarket centraliza la operación diaria de un comercio en una aplicación web: catálogo, existencias, ventas, clientes, sorteos comerciales, reportes y tareas administrativas. La información se separa por sucursal y las acciones disponibles se controlan según el rol del usuario.
 
-Para habilitar la entrega real, configure en el `.env` local un proveedor SMTP con
-`MAIL_MAILER=smtp`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`,
-`MAIL_ENCRYPTION`, `MAIL_FROM_ADDRESS` y `MAIL_FROM_NAME`, y ejecute
-`php artisan config:clear`. Las credenciales pertenecen al entorno y nunca deben
-guardarse en el repositorio.
+El sistema está orientado a conservar trazabilidad. Las ventas guardan los datos históricos de cada línea, los cambios de precio generan un historial inmutable, todo ajuste de stock produce un movimiento y las anulaciones revierten existencias sin eliminar la operación original.
 
-## Administrador inicial
+## Características principales
 
-Después de migrar y ejecutar las semillas, crear el único administrador inicial con:
+- Punto de venta con búsqueda por nombre, código de barras o código interno.
+- Carrito persistente en sesión, actualización de cantidades y control de cambios de precio antes de confirmar.
+- Cobros en efectivo, QR o modalidad mixta, incluido cálculo de cambio para efectivo.
+- Comprobantes térmicos e historial detallado de ventas.
+- Anulación de ventas del día con motivo obligatorio, restitución transaccional del stock y registro de auditoría.
+- Inventario con entradas, salidas y ajustes positivos o negativos; no permite existencias negativas.
+- Alertas por stock agotado, stock mínimo, productos próximos a vencer y productos vencidos.
+- Productos por unidad, kilogramo o litro, con precisión acorde a cada unidad comercial.
+- Gestión de clientes y emisión de tickets para sorteos por umbral configurable.
+- Dashboard operativo, reportes por períodos y exportaciones en PDF.
+- Administración de cajeros, control de cuentas activas y aislamiento de datos por sucursal.
+- Respaldos locales de MySQL manuales y automáticos en formato comprimido.
+- Interfaz adaptable con modos claro y oscuro.
 
-```powershell
-C:\xampp\php\php.exe artisan micromarket:create-admin
+## Módulos del sistema
+
+| Módulo | Alcance implementado |
+| --- | --- |
+| **Dashboard** | Ventas confirmadas y anuladas del día, totales por forma de pago, operaciones mixtas, productos más vendidos y alertas de abastecimiento y vencimiento. Permite exportar el resumen de inventario a PDF. |
+| **Punto de venta** | Búsqueda y lectura de códigos, carrito en sesión, validación de disponibilidad y precio, cantidades enteras o decimales según unidad, pagos en efectivo, QR y mixtos, y comprobante térmico. |
+| **Ventas** | Historial y detalle con datos históricos, pagos asociados, recibo y anulación de operaciones del día. No existen rutas para editar o eliminar ventas confirmadas. |
+| **Productos** | Alta, consulta, filtros, edición y activación/desactivación. Maneja categoría, unidad, precios de compra y venta, stock mínimo, vencimiento, código de barras o código interno generado. |
+| **Categorías** | Búsqueda, creación, edición y activación/desactivación sin borrado físico. Los nombres son únicos por sucursal después de su normalización. |
+| **Inventario** | Consulta y filtros por categoría, estado, nivel de stock y vencimiento. Registra movimientos manuales y automáticos con stock anterior y resultante, motivo, observación, usuario, sucursal y fecha. |
+| **Clientes y sorteos** | Búsqueda por nombre, teléfono o CI; alta de clientes durante la venta; tickets por múltiplos completos del umbral; períodos bimestrales y estados activo, expirado o anulado. |
+| **Reportes** | Indicadores, detalle de ventas, productos vendidos y gráficos por hora o día para hoy, ayer, una fecha, un rango o un mes. El administrador puede descargarlos en PDF. |
+| **Usuarios** | Creación, edición, activación/desactivación y restablecimiento de contraseña de cajeros. El alta pública está deshabilitada. |
+| **Auditoría** | Registro por sucursal de acciones sensibles sobre productos y anulaciones, con valores anteriores y nuevos sin exponer datos sensibles. |
+| **Respaldos** | Volcado completo de MySQL mediante `mysqldump`, compresión Gzip, control de concurrencia y seguimiento del último respaldo correcto. |
+
+## Flujo de una venta
+
+1. El usuario localiza productos disponibles por texto, código o lectura de código de barras.
+2. El carrito se conserva en la sesión y vuelve a consultar los datos vigentes desde la base de datos.
+3. Antes del cobro, el backend valida sucursal, estado del producto, unidad, stock y precio actual.
+4. La venta, sus líneas, pagos y movimientos de inventario se crean dentro de una transacción.
+5. Si el total alcanza el umbral del sorteo, se solicita aceptar o rechazar la participación; al aceptar se vincula un cliente y se generan los tickets correspondientes.
+6. La operación queda disponible en el historial y puede imprimirse como comprobante térmico.
+
+Si una venta se anula durante el mismo día local, el sistema restaura el stock, crea movimientos de reversión, invalida sus tickets de sorteo y conserva la venta como registro histórico.
+
+## Roles y permisos
+
+La aplicación implementa dos roles:
+
+- **Administrador:** gestiona categorías y cajeros, consulta auditoría, configura el umbral de sorteos, ejecuta respaldos manuales y exporta reportes comerciales en PDF.
+- **Cajero:** opera productos dentro de los campos autorizados, inventario, POS, ventas, clientes y consultas de reportes.
+
+Ambos roles pueden trabajar con ventas e inventario de su sucursal. Las políticas, middleware y validaciones de backend impiden operar sobre datos de otra sucursal; las cuentas inactivas pierden el acceso incluso si ya tenían una sesión abierta.
+
+## Reglas de negocio y trazabilidad
+
+- El stock solo cambia mediante movimientos de inventario y cada actualización utiliza bloqueo y transacción de base de datos.
+- Los productos por unidad aceptan cantidades enteras; kilogramo y litro admiten hasta tres decimales.
+- Los precios utilizan dos decimales y sus modificaciones quedan en `product_price_history` con usuario y sucursal.
+- Un código de barras activo no puede repetirse dentro de una misma sucursal.
+- Los datos históricos de una venta —nombre, unidad, cantidad y precio— no dependen de cambios posteriores en el producto.
+- Las ventas anuladas no se incluyen en ingresos, gráficos ni métricas de ventas confirmadas.
+- Los tickets de sorteo se calculan por venta, no se acumulan importes entre operaciones, y se agrupan en períodos bimestrales.
+- La aplicación opera con la zona horaria `America/La_Paz`.
+
+## Tecnologías utilizadas
+
+| Área | Tecnologías |
+| --- | --- |
+| Backend | PHP 8.2+, Laravel 12 |
+| Interfaz | Blade, Tailwind CSS 3, Alpine.js, JavaScript |
+| Persistencia | MySQL/MariaDB, Eloquent ORM, migraciones y seeders |
+| Construcción de assets | Vite 7, PostCSS, Autoprefixer |
+| PDF | DOMPDF mediante `barryvdh/laravel-dompdf` |
+| Códigos de barras | ZXing Browser |
+| Pruebas | PHPUnit 11 y utilidades de testing de Laravel |
+
+## Arquitectura y estructura
+
+La solución sigue la estructura MVC de Laravel y separa las reglas operativas de los controladores:
+
+```text
+app/
+├── Contracts/          # Contratos para infraestructura de respaldo
+├── Data/               # Objetos de resultado
+├── Enums/              # Estados, roles, unidades y tipos de movimiento
+├── Http/
+│   ├── Controllers/    # Endpoints web y módulos administrativos
+│   ├── Middleware/     # Cuenta activa y autorización por rol
+│   └── Requests/       # Validación y autorización de entradas
+├── Models/             # Entidades y relaciones Eloquent
+├── Policies/           # Permisos por recurso, rol y sucursal
+└── Services/           # Ventas, inventario, reportes, sorteos, auditoría y backups
+
+database/
+├── factories/          # Datos para pruebas
+├── migrations/         # Esquema y evolución de la base de datos
+└── seeders/            # Roles y sucursal inicial
+
+resources/
+├── css/                # Estilos Tailwind
+├── js/                 # Interacciones y escáner de códigos
+└── views/              # Vistas Blade y plantillas PDF
+
+tests/
+├── Feature/            # Flujos HTTP, permisos e integración
+└── Unit/               # Reglas aisladas
 ```
 
-El comando solicita nombre, correo y contraseña. La contraseña se captura de forma
-oculta, se confirma y se almacena con el hashing configurado por Laravel. El comando
-se niega a crear un segundo administrador.
+Servicios como `SaleService`, `InventoryService` y `SaleCancellationService` encapsulan operaciones transaccionales. `ReportService` y `DashboardService` concentran las consultas de indicadores; las policies y Form Requests aplican autorización y validación fuera de la interfaz.
 
-La gestión de cajeros queda disponible en `Usuarios` después de iniciar sesión como
-administrador.
+## Persistencia de datos
 
-## Decisiones de fundación
+El modelo relacional incluye sucursales, roles y usuarios; categorías y productos; historial de precios; ventas, líneas y pagos; movimientos de inventario; clientes, participaciones, períodos y tickets de sorteo; auditoría y configuración de respaldos.
 
-- Los roles son datos (`roles`) y no un paquete de permisos: por ahora solo existen
-  `administrator` y `cashier`.
-- El middleware `role` autoriza en backend y acepta uno o más slugs permitidos.
-- Las cuentas inactivas no pueden autenticarse y una sesión existente se invalida.
-- Las entidades operativas incluyen sucursal desde el inicio, aunque la interfaz
-  trabajará inicialmente con una sola.
-- Ventas y sus relaciones usan borrado restringido para proteger el historial.
-- Cantidades usan tres decimales para contemplar productos por peso; dinero usa dos.
-- La gestión de usuarios solo acepta campos explícitos y asigna el rol Cajero en el
-  backend; un valor de rol manipulado en una petición se ignora.
-- Clientes y participaciones de sorteos no forman parte de estas etapas. La venta
-  mantiene un identificador estable para relacionarlos posteriormente y el futuro
-  umbral configurable se modelará como configuración administrativa, sin acoplarlo
-  a los importes ni a la tabla de usuarios actuales.
+Las claves foráneas protegen el historial mediante restricciones de borrado. Las entidades operativas incluyen `branch_id`, lo que permite mantener el alcance de cada consulta y operación dentro de la sucursal correspondiente.
 
-## Categorías
+## Pruebas automatizadas
 
-Administradores y cajeros activos pueden listar, buscar, crear, editar, activar y
-desactivar categorías de su sucursal desde `Categorías`. No existe eliminación
-física. Los nombres se limpian de espacios repetidos y no pueden duplicarse dentro
-de una misma sucursal. La clave foránea existente en `products.category_id` queda
-preparada para la Etapa 4, sin implementar todavía el módulo de productos.
+La suite cubre autenticación, roles, gestión de usuarios, productos y categorías, inventario, POS, pagos, anulaciones, clientes, sorteos, dashboard, reportes, auditoría, respaldos y exportaciones PDF.
 
-## Productos
+Estado verificado del repositorio:
 
-Administradores y cajeros activos pueden listar, buscar, filtrar, crear, editar,
-activar y desactivar productos de su sucursal. El código interno `PRD-XXXXXXXXXXXX`
-se genera en backend y permanece estable; cuando existe un código de barras, este se
-muestra como identificador comercial preferente.
+```text
+Tests:      185 passed
+Assertions: 1240
+```
 
-El stock actual se muestra únicamente como información, nace en cero y no se acepta
-desde los formularios de Productos. Cualquier cambio queda reservado para el módulo
-de Inventario. No existen rutas de eliminación de productos.
+Para ejecutarla:
 
-Las unidades comerciales disponibles son Unidad, Kilogramo y Litro. Unidad exige
-cantidades enteras; Kilogramo y Litro admiten hasta tres decimales. Cada línea de
-venta conserva su unidad histórica para que Dashboard y detalle de venta presenten
-cantidades como `30 unidades`, `0,500 kg` o `1,500 L`.
+```bash
+php artisan test
+```
 
-## Inventario
+## Instalación local
 
-Inventario es la única vía para modificar `products.stock`. Cada entrada, salida,
-ajuste positivo o ajuste negativo bloquea el producto y registra en una misma
-transacción la cantidad, stock anterior, stock resultante, motivo, observación,
-usuario, sucursal y fecha. No se permite stock negativo ni movimientos sobre
-productos inactivos.
+### Requisitos
 
-Administrador y Cajero pueden consultar inventario, registrar movimientos manuales
-y revisar el historial de su sucursal. El listado
-muestra stock normal, bajo o agotado y el estado básico del vencimiento, sin modelar
-lotes, FEFO ni alertas externas.
+- PHP 8.2 o superior con extensiones habituales de Laravel, incluida BCMath.
+- Composer.
+- Node.js y npm.
+- MySQL o MariaDB.
+- `mysqldump` y soporte Gzip para utilizar el módulo de respaldos.
 
-La aplicación usa `APP_TIMEZONE=America/La_Paz`. Laravel, MariaDB configurado con la
-zona del sistema y las vistas trabajan con hora local UTC−4. Los campos numéricos de
-Productos e Inventario usan `step="any"`: las flechas avanzan por unidades y la
-entrada manual conserva dos decimales para precios y tres para cantidades.
+### Configuración
 
-En Categorías, el Administrador puede crear, editar y activar/desactivar. El Cajero
-mantiene acceso de consulta y búsqueda, pero recibe 403 en rutas de modificación.
+```bash
+git clone <URL_DEL_REPOSITORIO>
+cd QuiQue-Micromarket
+composer install
+copy .env.example .env
+php artisan key:generate
+```
 
-## Punto de venta y ventas
+En Linux o macOS, sustituye `copy` por `cp`. Después, crea la base de datos y configura en `.env` al menos `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME` y `DB_PASSWORD`.
 
-Administrador y Cajero pueden usar el POS y consultar el historial de su sucursal.
-La búsqueda acepta nombre, código de barras y código interno. Las ventas conservan
-el precio histórico, aceptan efectivo, QR o pago mixto y se confirman en una sola
-transacción. El stock se descuenta exclusivamente mediante `InventoryService` y
-cada salida automática queda vinculada a la venta. No existen rutas para modificar
-o eliminar ventas confirmadas.
+```bash
+php artisan migrate --seed
+php artisan micromarket:create-admin
+npm install
+npm run build
+php artisan serve
+```
 
-El carrito del POS se conserva en la sesión autenticada con el identificador,
-cantidad y precio observado de cada producto. Al regresar al POS, los demás datos
-se reconstruyen desde la base de datos. Un cambio de precio bloquea la confirmación
-hasta que el cajero actualiza expresamente la línea. Vaciar el carrito no crea
-ventas ni movimientos. Las modificaciones del precio de venta generan registros
-permanentes en `product_price_history` con producto, sucursal, usuario y valores
-anterior y nuevo.
+El comando de administrador inicial solicita nombre, correo y contraseña de forma interactiva y rechaza la creación de un segundo administrador. El seeder crea los roles **Administrador** y **Cajero**, además de la sucursal principal; no incluye credenciales predeterminadas.
 
-## Dashboard
+Para desarrollo con recarga de assets puede utilizarse `npm run dev`. El repositorio también incluye un ejemplo de VirtualHost para Apache en `deploy/apache`.
 
-Inicio muestra el resumen del día local de la sucursal del usuario: cantidad y
-total de ventas confirmadas, componentes Efectivo y QR, total de operaciones con
-pago mixto, productos más vendidos con sus datos históricos, stock agotado/bajo y
-productos próximos a vencer o vencidos. Las métricas usan agregaciones SQL y
-enlazan a Ventas e Inventario; no constituyen todavía reportes avanzados.
+### Respaldos automáticos
+
+El respaldo local utiliza las variables `BACKUP_MYSQLDUMP_PATH`, `BACKUP_LOCAL_PATH`, `BACKUP_PROCESS_TIMEOUT` y las opciones `BACKUP_AUTOMATIC_*` del archivo `.env`. Laravel agenda `backup:automatic` cada hora y el servicio decide si corresponde ejecutar un nuevo respaldo según el intervalo configurado.
+
+En producción debe mantenerse activo el scheduler de Laravel. El repositorio incluye una guía específica para el Programador de tareas de Windows en `deploy/backup-scheduler-windows.md`.
+
+## Identidad visual
+
+El repositorio incluye los recursos gráficos propios de QuiQue Micromarket en `public/images`. No contiene capturas de pantalla de la interfaz, por lo que este README no presenta imágenes que no formen parte del proyecto.
