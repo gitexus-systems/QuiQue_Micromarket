@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\MeasurementUnit;
 use App\Models\Product;
 use App\Models\User;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class PosCartService
@@ -65,6 +66,27 @@ class PosCartService
         session()->forget($this->key($user));
     }
 
+    public function checkoutToken(User $user): string
+    {
+        $key = $this->checkoutTokenKey($user);
+        $token = session($key);
+
+        if (! is_string($token) || ! Str::isUuid($token)) {
+            $token = (string) Str::uuid();
+            session([$key => $token]);
+        }
+
+        return $token;
+    }
+
+    public function renewCheckoutToken(User $user): string
+    {
+        $token = (string) Str::uuid();
+        session([$this->checkoutTokenKey($user) => $token]);
+
+        return $token;
+    }
+
     public function total(User $user): string
     {
         return collect($this->items($user))->reduce(function (string $total, array $item) {
@@ -117,5 +139,10 @@ class PosCartService
     private function key(User $user): string
     {
         return 'pos.cart.'.$user->id;
+    }
+
+    private function checkoutTokenKey(User $user): string
+    {
+        return 'pos.checkout_token.'.$user->id;
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\Sale;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class StoreSaleRequest extends FormRequest
@@ -21,6 +22,7 @@ class StoreSaleRequest extends FormRequest
             ->values()->all();
         $this->merge([
             'items' => $items,
+            'checkout_token' => Str::lower(trim((string) $this->input('checkout_token'))),
             'customer_full_name' => preg_replace('/\s+/u', ' ', trim((string) $this->customer_full_name)) ?: null,
             'customer_phone' => preg_replace('/[^0-9+]/', '', (string) $this->customer_phone) ?: null,
             'customer_ci' => mb_strtoupper(preg_replace('/\s+/u', '', trim((string) $this->customer_ci))) ?: null,
@@ -29,7 +31,14 @@ class StoreSaleRequest extends FormRequest
 
     public function rules(): array
     {
+        $existingCustomerId = Sale::query()
+            ->where('checkout_token', $this->input('checkout_token'))
+            ->where('user_id', $this->user()->id)
+            ->where('branch_id', $this->user()->branch_id)
+            ->value('customer_id');
+
         return [
+            'checkout_token' => ['required', 'uuid'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'distinct'],
             'items.*.quantity' => ['required', 'decimal:0,3', 'gt:0', 'lte:999999999.999'],
@@ -40,8 +49,8 @@ class StoreSaleRequest extends FormRequest
             'raffle_decision' => ['nullable', Rule::in(['participate', 'decline'])],
             'customer_id' => ['nullable', 'integer', Rule::exists('customers', 'id')->where('branch_id', $this->user()->branch_id)],
             'customer_full_name' => [Rule::requiredIf($this->raffle_decision === 'participate' && ! $this->filled('customer_id')), 'nullable', 'string', 'max:150'],
-            'customer_phone' => [Rule::requiredIf($this->raffle_decision === 'participate' && ! $this->filled('customer_id')), 'nullable', 'string', 'min:6', 'max:30', Rule::unique('customers', 'phone')->where('branch_id', $this->user()->branch_id)],
-            'customer_ci' => ['nullable', 'string', 'max:30', Rule::unique('customers', 'ci')->where('branch_id', $this->user()->branch_id)],
+            'customer_phone' => [Rule::requiredIf($this->raffle_decision === 'participate' && ! $this->filled('customer_id')), 'nullable', 'string', 'min:6', 'max:30', Rule::unique('customers', 'phone')->where('branch_id', $this->user()->branch_id)->ignore($existingCustomerId)],
+            'customer_ci' => ['nullable', 'string', 'max:30', Rule::unique('customers', 'ci')->where('branch_id', $this->user()->branch_id)->ignore($existingCustomerId)],
         ];
     }
 

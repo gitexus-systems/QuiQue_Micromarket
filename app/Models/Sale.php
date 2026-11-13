@@ -15,7 +15,7 @@ class Sale extends Model
     /** @use HasFactory<SaleFactory> */
     use HasFactory;
 
-    protected $fillable = ['branch_id', 'user_id', 'customer_id', 'sale_number', 'subtotal', 'total', 'status', 'confirmed_at', 'cancelled_by', 'cancelled_at', 'cancellation_reason'];
+    protected $fillable = ['branch_id', 'user_id', 'customer_id', 'sale_number', 'checkout_token', 'checkout_fingerprint', 'subtotal', 'total', 'status', 'confirmed_at', 'cancelled_by', 'cancelled_at', 'cancellation_reason'];
 
     protected function casts(): array
     {

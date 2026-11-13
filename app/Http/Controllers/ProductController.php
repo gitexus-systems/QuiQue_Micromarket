@@ -77,13 +77,15 @@ class ProductController extends Controller
             Branch::query()->whereKey($request->user()->branch_id)->lockForUpdate()->firstOrFail();
             $barcodeGuard->ensureAvailable($request->user()->branch_id, $request->validated('barcode'));
 
-            $product = Product::query()->create([
+            $attributes = [
                 ...$request->validated(),
                 'branch_id' => $request->user()->branch_id,
-                'internal_code' => $request->validated('barcode') === null ? $codeGenerator->generate() : null,
                 'is_active' => true,
                 'created_by' => $request->user()->id,
-            ]);
+            ];
+            $product = $request->validated('barcode') === null
+                ? $codeGenerator->createProduct($attributes)
+                : Product::query()->create([...$attributes, 'internal_code' => null]);
             $audit->record($request->user(), 'Producto creado', $product, null, [
                 'name' => $product->name,
                 'purchase_price' => $product->purchase_price,
@@ -135,12 +137,14 @@ class ProductController extends Controller
                     'expires_at',
                 ]));
             } else {
-                $internalCode = match (true) {
-                    $request->validated('barcode') !== null => null,
-                    $lockedProduct->internal_code !== null => $lockedProduct->internal_code,
-                    default => $codeGenerator->generate(),
-                };
-                $lockedProduct->update([...$request->validated(), 'internal_code' => $internalCode]);
+                if ($request->validated('barcode') === null && $lockedProduct->internal_code === null) {
+                    $codeGenerator->updateProduct($lockedProduct, $request->validated());
+                } else {
+                    $lockedProduct->update([
+                        ...$request->validated(),
+                        'internal_code' => $request->validated('barcode') !== null ? null : $lockedProduct->internal_code,
+                    ]);
+                }
             }
 
             if (bccomp($oldPurchasePrice, $lockedProduct->purchase_price, 2) !== 0 || bccomp($oldPrice, $lockedProduct->sale_price, 2) !== 0) {

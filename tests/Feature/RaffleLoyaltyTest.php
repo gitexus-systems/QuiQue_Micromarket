@@ -16,6 +16,7 @@ use App\Services\RaffleParticipationService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -298,7 +299,7 @@ class RaffleLoyaltyTest extends TestCase
 
     private function posSaleData(Product $product, array $extra): array
     {
-        return ['items' => [['product_id' => $product->id, 'quantity' => '1']], 'payment_type' => 'cash', 'cash_received' => $product->sale_price, ...$extra];
+        return ['checkout_token' => (string) Str::uuid(), 'items' => [['product_id' => $product->id, 'quantity' => '1']], 'payment_type' => 'cash', 'cash_received' => $product->sale_price, ...$extra];
     }
 
     private function cashier(): User

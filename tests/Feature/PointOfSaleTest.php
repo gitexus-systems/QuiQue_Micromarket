@@ -15,6 +15,7 @@ use App\Models\SaleItem;
 use App\Models\User;
 use App\Services\PosCartService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -328,7 +329,7 @@ class PointOfSaleTest extends TestCase
 
     private function requestData(Product $product, array $overrides = []): array
     {
-        return ['items' => [['product_id' => $product->id, 'quantity' => '2.000']], 'payment_type' => 'cash', 'cash_received' => '50.00', 'cash_amount' => null, 'qr_amount' => null, 'raffle_decision' => 'decline', ...$overrides];
+        return ['checkout_token' => (string) Str::uuid(), 'items' => [['product_id' => $product->id, 'quantity' => '2.000']], 'payment_type' => 'cash', 'cash_received' => '50.00', 'cash_amount' => null, 'qr_amount' => null, 'raffle_decision' => 'decline', ...$overrides];
     }
 
     private function productData(): array

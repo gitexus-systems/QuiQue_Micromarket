@@ -14,12 +14,12 @@ use App\Models\Role;
 use App\Models\User;
 use App\Services\AuditService;
 use App\Services\DashboardService;
-use App\Services\RaffleParticipationService;
 use App\Services\ReportService;
 use App\Services\SaleCancellationService;
 use App\Services\SaleService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Mockery;
 use Tests\TestCase;
 
@@ -120,8 +120,7 @@ class SaleCancellationTest extends TestCase
         $this->branch->update(['raffle_ticket_threshold' => '10.00']);
         $user = $this->cashier();
         $product = $this->product(['stock' => '10.000', 'sale_price' => '25.00']);
-        $sale = $this->sale($user, $product, '2.000');
-        app(RaffleParticipationService::class)->accept($user, $sale, [
+        $sale = $this->sale($user, $product, '2.000', [
             'full_name' => 'Cliente Sorteo', 'phone' => '70000001', 'ci' => null,
         ]);
         $ticketCount = $sale->raffleParticipation->tickets()->count();
@@ -189,11 +188,26 @@ class SaleCancellationTest extends TestCase
         $this->assertDatabaseCount('audit_logs', 0);
     }
 
-    private function sale(User $user, Product $product, string $quantity)
+    private function sale(User $user, Product $product, string $quantity, ?array $raffleCustomer = null)
     {
-        return app(SaleService::class)->confirm($user, [[
+        $raffleDecision = $raffleCustomer === null ? 'decline' : 'participate';
+        $checkout = [
+            'checkout_token' => (string) Str::uuid(),
+            'items' => [['product_id' => $product->id, 'quantity' => $quantity]],
+            'payment_type' => 'cash',
+            'cash_received' => '1000.00',
+            'cash_amount' => null,
+            'qr_amount' => null,
+            'raffle_decision' => $raffleDecision,
+            'customer_full_name' => $raffleCustomer['full_name'] ?? null,
+            'customer_phone' => $raffleCustomer['phone'] ?? null,
+            'customer_ci' => $raffleCustomer['ci'] ?? null,
+        ];
+        $service = app(SaleService::class);
+
+        return $service->confirm($user, [[
             'product_id' => $product->id, 'quantity' => $quantity, 'expected_price' => $product->sale_price,
-        ]], 'cash', '1000.00', null, null);
+        ]], 'cash', '1000.00', null, null, $checkout['checkout_token'], $service->fingerprint($user, $checkout), $raffleDecision, $raffleCustomer ?? []);
     }
 
     private function product(array $attributes = []): Product

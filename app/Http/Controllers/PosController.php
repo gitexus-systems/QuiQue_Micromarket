@@ -23,7 +23,11 @@ class PosController extends Controller
 
         $threshold = (string) $request->user()->branch->raffle_ticket_threshold;
 
-        return view('pos.index', ['initialCart' => $cart->items($request->user()), 'initialRaffleQuote' => $raffles->ticketCount($cart->total($request->user()), $threshold)]);
+        return view('pos.index', [
+            'initialCart' => $cart->items($request->user()),
+            'initialRaffleQuote' => $raffles->ticketCount($cart->total($request->user()), $threshold),
+            'checkoutToken' => $cart->checkoutToken($request->user()),
+        ]);
     }
 
     public function raffleQuote(Request $request, PosCartService $cart, RaffleParticipationService $raffles): JsonResponse
@@ -48,29 +52,54 @@ class PosController extends Controller
         return response()->json($products->map(fn ($p) => ['id' => $p->id, 'name' => $p->name, 'code' => $p->displayCode(), 'exact_code_match' => $p->barcode === $search || $p->internal_code === $search, 'unit' => $p->unit->label(), 'is_unit' => $p->unit->value === 'unit', 'price' => $p->sale_price, 'stock' => $p->stock, 'stock_label' => $p->unit->formatQuantity($p->stock)]));
     }
 
-    public function store(StoreSaleRequest $request, SaleService $service, RaffleParticipationService $raffles): RedirectResponse
+    public function store(StoreSaleRequest $request, SaleService $service, RaffleParticipationService $raffles, PosCartService $cart): RedirectResponse
     {
         $data = $request->validated();
-        $cart = app(PosCartService::class);
-        $items = $cart->checkoutItems($request->user(), $data['items']);
+        $fingerprint = $service->fingerprint($request->user(), $data);
+
+        if ($sale = $service->existingCheckout($request->user(), $data['checkout_token'], $fingerprint)) {
+            $cart->clear($request->user());
+            $cart->renewCheckoutToken($request->user());
+
+            return redirect()->route('sales.show', $sale)->with('status', "Venta {$sale->sale_number} recuperada correctamente.");
+        }
+
+        try {
+            $items = $cart->checkoutItems($request->user(), $data['items']);
+        } catch (ValidationException $exception) {
+            if ($sale = $service->existingCheckout($request->user(), $data['checkout_token'], $fingerprint)) {
+                $cart->clear($request->user());
+                $cart->renewCheckoutToken($request->user());
+
+                return redirect()->route('sales.show', $sale)->with('status', "Venta {$sale->sale_number} recuperada correctamente.");
+            }
+
+            throw $exception;
+        }
+
         $ticketCount = $raffles->ticketCount($cart->total($request->user()), (string) $request->user()->branch->raffle_ticket_threshold);
         if ($ticketCount > 0 && ! in_array($data['raffle_decision'] ?? null, ['participate', 'decline'], true)) {
             throw ValidationException::withMessages(['raffle_decision' => 'Indique si el cliente participará en el sorteo antes de confirmar la venta.']);
         }
-        $sale = $service->confirm($request->user(), $items, $data['payment_type'], $data['cash_received'] ?? null, $data['cash_amount'] ?? null, $data['qr_amount'] ?? null);
-        if ($sale->raffleParticipation !== null) {
-            if (($data['raffle_decision'] ?? null) === 'participate') {
-                $raffles->accept($request->user(), $sale, [
-                    'customer_id' => $data['customer_id'] ?? null,
-                    'full_name' => $data['customer_full_name'] ?? null,
-                    'phone' => $data['customer_phone'] ?? null,
-                    'ci' => $data['customer_ci'] ?? null,
-                ]);
-            } else {
-                $raffles->decline($request->user(), $sale);
-            }
-        }
+        $sale = $service->confirm(
+            $request->user(),
+            $items,
+            $data['payment_type'],
+            $data['cash_received'] ?? null,
+            $data['cash_amount'] ?? null,
+            $data['qr_amount'] ?? null,
+            $data['checkout_token'],
+            $fingerprint,
+            $data['raffle_decision'] ?? null,
+            [
+                'customer_id' => $data['customer_id'] ?? null,
+                'full_name' => $data['customer_full_name'] ?? null,
+                'phone' => $data['customer_phone'] ?? null,
+                'ci' => $data['customer_ci'] ?? null,
+            ],
+        );
         $cart->clear($request->user());
+        $cart->renewCheckoutToken($request->user());
 
         return redirect()->route('sales.show', $sale)->with('status', "Venta {$sale->sale_number} confirmada correctamente.");
     }

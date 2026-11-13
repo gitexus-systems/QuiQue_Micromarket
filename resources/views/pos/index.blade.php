@@ -4,6 +4,7 @@
     <div class="py-8" x-data="pos()" @keydown.escape.window="closeModals()">
         <form method="POST" action="{{ route('pos.sales.store') }}" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" @submit="submitting = true">
             @csrf
+            <input type="hidden" name="checkout_token" value="{{ old('checkout_token', $checkoutToken) }}">
             @if (session('status'))<div class="mb-5 rounded-md bg-green-50 p-4 text-green-800">{{ session('status') }}</div>@endif
             <div class="grid gap-6 lg:grid-cols-5">
                 <section class="lg:col-span-3 space-y-4">
